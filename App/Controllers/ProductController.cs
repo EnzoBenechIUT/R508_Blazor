@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace App.Controllers;
 
-[Route("api/produits")]
+[Route("api/produits/[action]")]
 [ApiController]
 public class ProductController(
     IMapper<Produit, ProduitDto> produitMapperDTO,  
@@ -15,6 +15,7 @@ public class ProductController(
     ) : ControllerBase
 {
     [HttpGet("{id}")]
+    [ActionName("GetById")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProduitDetailDto?>> Get(int id)
@@ -24,6 +25,7 @@ public class ProductController(
     }
 
     [HttpDelete("{id}")]
+    [ActionName("Delete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
@@ -38,6 +40,7 @@ public class ProductController(
     }
 
     [HttpGet]
+    [ActionName("GetAll")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult<IEnumerable<ProduitDto>>> GetAll()
     {
@@ -46,6 +49,7 @@ public class ProductController(
     }
 
     [HttpPost]
+    [ActionName("Create")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Produit>> Create([FromBody] Produit produit)
@@ -59,6 +63,7 @@ public class ProductController(
     }
 
     [HttpPut("{id}")]
+    [ActionName("Update")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

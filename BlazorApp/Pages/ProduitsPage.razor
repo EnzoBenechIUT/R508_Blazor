@@ -1,11 +1,49 @@
 ﻿@page "/produits"
+@using BlazorApp.ViewModels
+@inject GetProductsViewModel ViewModel
 
 <PageTitle>Produits</PageTitle>
 
 <h1>Produits</h1>
 
-
+@if (ViewModel.IsLoading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (ViewModel.Produits == null || !ViewModel.Produits.Any())
+{
+    <p>Aucun produit trouvé.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom</th>
+                <th>Description</th>
+                <th>Marque</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var produit in ViewModel.Produits)
+            {
+                <tr>
+                    <td>@produit.IdProduit</td>
+                    <td>@produit.NomProduit</td>
+                    <td>@produit.Description</td>
+                    <td>@produit.MarqueNavigation?.NomMarque</td>  
+                    <td>@produit.TypeProduitNavigation?.NomTypeProduit</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 
 @code {
-    
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadDataAsync();
+    }
 }

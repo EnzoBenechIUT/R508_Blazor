@@ -24,7 +24,21 @@ public class Program
         builder.Services.AddSingleton<IMapper<Produit, ProduitDto>, ProduitMapper>();
         builder.Services.AddSingleton<IMapper<Produit, ProduitDetailDto>, ProduitMapper>();
 
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowBlazorClient", policy =>
+            {
+                policy
+                    .WithOrigins("https://localhost:7082") 
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        });
+
         var app = builder.Build();
+
+        app.UseCors("AllowBlazorClient");
+
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
