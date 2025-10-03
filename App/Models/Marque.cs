@@ -3,8 +3,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace App.Models;
 
+[Table("Marque")]
 public class Marque
 {
+
     [Key]
     [Column("id_marque")]
     public int IdMarque { get; set; }
@@ -12,5 +14,5 @@ public class Marque
     [Column("nom_marque")] public string NomMarque { get; set; } = null!;
 
     [InverseProperty(nameof(Produit.MarqueNavigation))]
-    public virtual ICollection<Produit> Produits { get; set; } = null!;
+    public virtual ICollection<Produit>? Produits { get; set; } = null!;
 }

@@ -1,14 +1,74 @@
 ﻿@page "/produits"
-@using BlazorApp.ViewModels
-@inject GetProductsViewModel ViewModel
-
-<PageTitle>Produits</PageTitle>
+@inject BlazorApp.ViewModels.ProductsViewModel ViewModel
+@inject BlazorApp.ViewModels.TypeProduitViewModel TypeVM
+@inject BlazorApp.ViewModels.MarqueViewModel MarqueVM
 
 <h1>Produits</h1>
 
+<!-- Alert -->
+<Alert @ref="AlertComponent" />
+
+<!-- Formulaire d'ajout -->
+<h3>Ajouter un produit</h3>
+<EditForm Model="NewProduit" OnValidSubmit="AddProduit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="nom">Nom</label>
+        <InputText id="nom" class="form-control" @bind-Value="NewProduit.Nom" />
+    </div>
+
+    <div class="mb-3">
+        <label for="description">Description</label>
+        <InputText id="description" class="form-control" @bind-Value="NewProduit.Description" />
+    </div>
+
+    <div class="mb-3">
+        <label for="nomPhoto">Nom photo</label>
+        <InputText id="nomPhoto" class="form-control" @bind-Value="NewProduit.NomPhoto" />
+    </div>
+
+    <div class="mb-3">
+        <label for="uriPhoto">URI photo</label>
+        <InputText id="uriPhoto" class="form-control" @bind-Value="NewProduit.UriPhoto" />
+    </div>
+
+    <div class="mb-3">
+        <label for="type">Type</label>
+        <select id="type" class="form-control" @bind="NewProduit.TypeId">
+            <option value="">-- Choisir un type --</option>
+            @foreach (var t in TypeVM.Types)
+            {
+                <option value="@t.IdTypeProduit">@t.NomTypeProduit</option>
+            }
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="marque">Marque</label>
+        <select id="marque" class="form-control" @bind="NewProduit.MarqueId">
+            <option value="">-- Choisir une marque --</option>
+            @foreach (var m in MarqueVM.Marques)
+            {
+                <option value="@m.IdMarque">@m.NomMarque</option>
+            }
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="stockReel">Stock</label>
+        <InputNumber id="stockReel" class="form-control" @bind-Value="NewProduit.StockReel" />
+    </div>
+
+    <button type="submit" class="btn btn-success">Ajouter</button>
+</EditForm>
+
+<hr />
+
 @if (ViewModel.IsLoading)
 {
-    <p><em>Loading...</em></p>
+    <p><em>Chargement en cours...</em></p>
 }
 else if (ViewModel.Produits == null || !ViewModel.Produits.Any())
 {
@@ -21,29 +81,145 @@ else
             <tr>
                 <th>ID</th>
                 <th>Nom</th>
-                <th>Description</th>
-                <th>Marque</th>
                 <th>Type</th>
+                <th>Marque</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var produit in ViewModel.Produits)
             {
                 <tr>
-                    <td>@produit.IdProduit</td>
-                    <td>@produit.NomProduit</td>
-                    <td>@produit.Description</td>
-                    <td>@produit.MarqueNavigation?.NomMarque</td>  
-                    <td>@produit.TypeProduitNavigation?.NomTypeProduit</td>
+                    <td>@produit.Id</td>
+                    <td>@produit.Nom</td>
+                    <td>@produit.Type</td>
+                    <td>@produit.Marque</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick="() => EditProduit(produit)">Modifier</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduit(produit.Id)">Supprimer</button>
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
 }
 
+@if (SelectedProduit != null)
+{
+    <h3>Modifier un produit</h3>
+    <EditForm Model="SelectedProduit" OnValidSubmit="SaveProduit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label for="nom">Nom</label>
+            <InputText id="nom" class="form-control" @bind-Value="SelectedProduit.Nom" />
+        </div>
+
+        <div class="mb-3">
+            <label for="description">Description</label>
+            <InputText id="description" class="form-control" @bind-Value="SelectedProduit.Description" />
+        </div>
+
+        <div class="mb-3">
+            <label for="nomPhoto">Nom photo</label>
+            <InputText id="nomPhoto" class="form-control" @bind-Value="SelectedProduit.NomPhoto" />
+        </div>
+
+        <div class="mb-3">
+            <label for="uriPhoto">URI photo</label>
+            <InputText id="uriPhoto" class="form-control" @bind-Value="SelectedProduit.UriPhoto" />
+        </div>
+
+        <div class="mb-3">
+            <label for="type">Type</label>
+            <select id="type" class="form-control" @bind="SelectedProduit.TypeId">
+                <option value="">-- Choisir un type --</option>
+                @foreach (var t in TypeVM.Types)
+                {
+                    <option value="@t.IdTypeProduit">@t.NomTypeProduit</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="marque">Marque</label>
+            <select id="marque" class="form-control" @bind="SelectedProduit.MarqueId">
+                <option value="">-- Choisir une marque --</option>
+                @foreach (var m in MarqueVM.Marques)
+                {
+                    <option value="@m.IdMarque">@m.NomMarque</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="stockReel">Stock</label>
+            <InputNumber id="stockReel" class="form-control" @bind-Value="SelectedProduit.StockReel" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Enregistrer</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Annuler</button>
+    </EditForm>
+}
+
 @code {
+    private ProduitDto NewProduit = new ProduitDto();
+    private ProduitDto? SelectedProduit;
+    private Alert? AlertComponent;
+
     protected override async Task OnInitializedAsync()
     {
+        await TypeVM.LoadDataAsync();
+        await MarqueVM.LoadDataAsync();
         await ViewModel.LoadDataAsync();
+    }
+
+    private async Task AddProduit()
+    {
+        await ViewModel.AddDataAsync(NewProduit);
+        NewProduit = new ProduitDto();
+        await ViewModel.LoadDataAsync();
+        AlertComponent?.Show("Produit ajouté avec succès !", "success");
+    }
+
+    private void EditProduit(ProduitDto produit)
+    {
+        SelectedProduit = new ProduitDto
+        {
+            Id = produit.Id,
+            Nom = produit.Nom,
+            Description = produit.Description,
+            NomPhoto = produit.NomPhoto,
+            UriPhoto = produit.UriPhoto,
+            TypeId = produit.TypeId,
+            MarqueId = produit.MarqueId,
+            StockReel = produit.StockReel,
+            StockMin = produit.StockMin,
+            StockMax = produit.StockMax
+        };
+    }
+
+    private async Task SaveProduit()
+    {
+        if (SelectedProduit != null)
+        {
+            await ViewModel.EditDataAsync(SelectedProduit);
+            SelectedProduit = null;
+            await ViewModel.LoadDataAsync();
+            AlertComponent?.Show("Produit modifié avec succès !", "info");
+        }
+    }
+
+    private void CancelEdit()
+    {
+        SelectedProduit = null;
+    }
+
+    private async Task DeleteProduit(int id)
+    {
+        await ViewModel.RemoveDataAsync(id);
+        await ViewModel.LoadDataAsync();
+        AlertComponent?.Show("Produit supprimé !", "danger");
     }
 }

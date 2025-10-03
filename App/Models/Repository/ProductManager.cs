@@ -4,19 +4,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace App.Models.Repository;
 
-public class ProductManager(AppDbContext context) : IDataRepository<Produit>
+public class ProductManager : IDataRepository<Produit>
 {
+    private readonly AppDbContext context;
+
+    public ProductManager(AppDbContext context)
+    {
+        this.context = context;
+    }
+
     public async Task<ActionResult<IEnumerable<Produit>>> GetAllAsync()
     {
-        return await context.Produits.ToListAsync();
+        var produits = await context.Produits
+            .Include(p => p.TypeProduitNavigation)
+            .Include(p => p.MarqueNavigation)
+            .ToListAsync();
+
+        return new ActionResult<IEnumerable<Produit>>(produits);
     }
 
     public async Task<ActionResult<Produit?>> GetByIdAsync(int id)
     {
-        return await context.Produits.FindAsync(id);
+        var produit = await context.Produits
+            .Include(p => p.TypeProduitNavigation)
+            .Include(p => p.MarqueNavigation)
+            .FirstOrDefaultAsync(p => p.IdProduit == id);
+
+        return new ActionResult<Produit?>(produit);
     }
 
-    public async Task<ActionResult<Produit?>> GetByStringAsync(string str)
+    public Task<ActionResult<Produit?>> GetByStringAsync(string str)
     {
         throw new NotImplementedException();
     }
@@ -31,7 +48,6 @@ public class ProductManager(AppDbContext context) : IDataRepository<Produit>
     {
         context.Produits.Attach(entityToUpdate);
         context.Entry(entityToUpdate).CurrentValues.SetValues(entity);
-        
         await context.SaveChangesAsync();
     }
 

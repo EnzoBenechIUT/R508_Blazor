@@ -1,0 +1,36 @@
+﻿@* Components/Alert.razor *@
+@if (Visible)
+{
+    <div class="alert @AlertClass alert-dismissible fade show" role="alert">
+        @Message
+        <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+    </div>
+}
+
+@code {
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public string Type { get; set; } = "success"; // success, danger, warning, info
+    [Parameter] public bool Visible { get; set; } = true;
+
+    private string AlertClass => Type switch
+    {
+        "success" => "alert-success",
+        "danger" => "alert-danger",
+        "warning" => "alert-warning",
+        "info" => "alert-info",
+        _ => "alert-primary"
+    };
+
+    public void Show(string message, string type = "success")
+    {
+        Message = message;
+        Type = type;
+        Visible = true;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        Visible = false;
+    }
+}

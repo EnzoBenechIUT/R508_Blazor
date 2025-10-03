@@ -1,29 +1,49 @@
-﻿using BlazorApp.Pages;
-using BlazorApp.Models;
+﻿using BlazorApp.DTO;
 using BlazorApp.Service;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+
 namespace BlazorApp.ViewModels;
-internal sealed partial class GetProductsViewModel : ObservableObject
+
+public sealed partial class ProductsViewModel : ObservableObject
 {
-    private readonly WSService _produitService;
-    public GetProductsViewModel(WSService productService)
+    private readonly IService<ProduitDto> _produitService;
+
+    public ProductsViewModel(IService<ProduitDto> produitService)
     {
-        _produitService = productService;
+        _produitService = produitService;
     }
-    [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private IEnumerable<Produit> _produits = Array.Empty<Produit>();
+
+    [ObservableProperty]
+    private bool _isLoading;
+
+    [ObservableProperty]
+    private List<ProduitDto> _produits = new();
+
     public async Task LoadDataAsync()
     {
         IsLoading = true;
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(2)); // simulate loading
-            Produits = await _produitService.GetAllAsync();
+            Produits = (await _produitService.GetAllAsync() ?? new List<ProduitDto>()).ToList();
         }
         finally
         {
             IsLoading = false;
         }
+    }
+
+    public async Task AddDataAsync(ProduitDto produit)
+    {
+        await _produitService.AddAsync(produit);
+    }
+
+    public async Task EditDataAsync(ProduitDto produit)
+    {
+        await _produitService.UpdateAsync(produit);
+    }
+
+    public async Task RemoveDataAsync(int id)
+    {
+        await _produitService.DeleteAsync(id);
     }
 }

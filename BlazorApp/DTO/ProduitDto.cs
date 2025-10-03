@@ -1,4 +1,4 @@
-namespace App.DTO;
+namespace BlazorApp.DTO;
 
 public class ProduitDto
 {

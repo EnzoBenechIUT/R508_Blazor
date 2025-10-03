@@ -1,5 +1,6 @@
 using App.DTO;
 using App.Mapper;
+using App.Mapping;
 using App.Models;
 using App.Models.EntityFramework;
 using App.Models.Repository;
@@ -21,9 +22,15 @@ public class Program
         builder.Services.AddSwaggerGen();
         builder.Services.AddDbContext<AppDbContext>();
         builder.Services.AddScoped<IDataRepository<Produit>, ProductManager>();
-        builder.Services.AddSingleton<IMapper<Produit, ProduitDto>, ProduitMapper>();
-        builder.Services.AddSingleton<IMapper<Produit, ProduitDetailDto>, ProduitMapper>();
+        builder.Services.AddScoped<IDataRepository<Marque>, MarqueManager>();
+        builder.Services.AddScoped<IMapper<Produit, ProduitDto>, AutoMapperAdapter<Produit, ProduitDto>>();
+        builder.Services.AddScoped<IMapper<TypeProduit, TypeProduitDto>, AutoMapperAdapter<TypeProduit, TypeProduitDto>>();
+        builder.Services.AddScoped<IMapper<Marque, MarqueDto>, AutoMapperAdapter<Marque, MarqueDto>>();
+        builder.Services.AddScoped<IDataRepository<TypeProduit>, TypeProduitManager>();
+        builder.Services.AddAutoMapper(typeof(MappingProfile));
 
+
+        builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("AllowBlazorClient", policy =>

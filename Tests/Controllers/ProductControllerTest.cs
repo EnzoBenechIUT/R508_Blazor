@@ -1,257 +1,202 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using App.Controllers;
 using App.DTO;
-using App.Mapper;
+using App.Mapping;
 using App.Models;
 using App.Models.EntityFramework;
 using App.Models.Repository;
-using JetBrains.Annotations;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Tests.Controllers;
-
-[TestClass]
-[TestSubject(typeof(ProductController))]
-[TestCategory("integration")]
-public class ProductControllerTest
+namespace Tests.Controllers
 {
-    private readonly AppDbContext  _context;
-    private readonly ProductController _productController;
-    private readonly ProduitMapper _produitMapper;
-
-    public ProductControllerTest()
+    [TestClass]
+    public class ProductControllerTests
     {
-        _context = new AppDbContext();
-        
-        ProductManager manager = new(_context);
-        
-        _produitMapper = new ProduitMapper();
-        _productController = new ProductController(_produitMapper, _produitMapper, manager);
-    }
-    
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _context.Produits.RemoveRange(_context.Produits);
-        _context.SaveChanges();
-    }
-
-    [TestMethod]
-    public void ShouldGetProduct()
-    {
-        // Given : Un produit en enregistré
-        Produit produitInDb = new()
+        private AppDbContext _context;
+        private ProductController _controller;
+        private IMapper _mapper;
+        private List<Produit> _testProduits;
+        private int _initialProductCount;
+        [TestInitialize]
+        public void Initialize()
         {
-            NomProduit = "Chaise",
-            Description = "Une superbe chaise",
-            NomPhoto = "Une superbe chaise bleu",
-            UriPhoto = "https://ikea.fr/chaise.jpg"
-        };
+            // Création du contexte
+            _context = new AppDbContext();
 
-        _context.Produits.Add(produitInDb);
-        _context.SaveChanges();
-        
-        // When : On appelle la méthode GET de l'API pour récupérer le produit
-        ActionResult<ProduitDetailDto> action = _productController.Get(produitInDb.IdProduit).GetAwaiter().GetResult();
-        
-        // Then : On récupère le produit et le code de retour est 200
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action.Value, typeof(ProduitDetailDto));
-        
-        ProduitDetailDto returnProduct = action.Value;
-        Assert.AreEqual(((IMapper<Produit, ProduitDetailDto>)_produitMapper).ToDTO(produitInDb), returnProduct);
-    }
+            // AutoMapper
+            var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
+            _mapper = config.CreateMapper();
+            _initialProductCount = _context.Produits.Count();
 
-    [TestMethod]
-    public void ShouldDeleteProduct()
-    {
-        // Given : Un produit enregistré
-        Produit produitInDb = new()
-        {
-            NomProduit = "Chaise",
-            Description = "Une superbe chaise",
-            NomPhoto = "Une superbe chaise bleu",
-            UriPhoto = "https://ikea.fr/chaise.jpg"
-        };
-
-        _context.Produits.Add(produitInDb);
-        _context.SaveChanges();
-        
-        // When : On souhaite supprimer un produit depuis l'API
-        IActionResult action = _productController.Delete(produitInDb.IdProduit).GetAwaiter().GetResult();
-        
-        // Then : Le produit a bien été supprimé et le code HTTP est NO_CONTENT (204)
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action, typeof(NoContentResult));
-        Assert.IsNull(_context.Produits.Find(produitInDb.IdProduit));
-    }
-    
-    [TestMethod]
-    public void ShouldNotDeleteProductBecauseProductDoesNotExist()
-    {
-        // Given : Un produit enregistré
-        Produit produitInDb = new()
-        {
-            NomProduit = "Chaise",
-            Description = "Une superbe chaise",
-            NomPhoto = "Une superbe chaise bleu",
-            UriPhoto = "https://ikea.fr/chaise.jpg"
-        };
-        
-        // When : On souhaite supprimer un produit depuis l'API
-        IActionResult action = _productController.Delete(produitInDb.IdProduit).GetAwaiter().GetResult();
-        
-        // Then : Le produit a bien été supprimé et le code HTTP est NO_CONTENT (204)
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action, typeof(NotFoundResult));
-    }
-
-    [TestMethod]
-    public void ShouldGetAllProducts()
-    {
-        // Given : Des produits enregistrées
-        IEnumerable<Produit> productInDb = [
-            new()
+            // Création de produits de test
+            _testProduits = new List<Produit>
             {
-                NomProduit = "Chaise",
-                Description = "Une superbe chaise",
-                NomPhoto = "Une superbe chaise bleu",
-                UriPhoto = "https://ikea.fr/chaise.jpg"
-            },
-            new()
+                new Produit
+                {
+                    NomProduit = "Chaise",
+                    Description = "Description chaise",
+                    NomPhoto = "chaise.jpg",
+                    UriPhoto = "http://test.com/chaise.jpg",
+                    StockReel = 5,
+                    StockMin = 1,
+                    StockMax = 10
+                },
+                new Produit
+                {
+                    NomProduit = "Table",
+                    Description = "Description table",
+                    NomPhoto = "table.jpg",
+                    UriPhoto = "http://test.com/table.jpg",
+                    StockReel = 3,
+                    StockMin = 1,
+                    StockMax = 5
+                }
+            };
+            _context.Produits.AddRange(_testProduits);
+            _context.SaveChanges();
+
+            // Controller
+            var mapperWrapper = new AutoMapperWrapper(_mapper);
+            var manager = new ProductManager(_context);
+            _controller = new ProductController(mapperWrapper, manager);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            // Supprime uniquement les produits créés pour les tests
+            _context.Produits.RemoveRange(_testProduits);
+            _context.SaveChanges();
+        }
+
+        [TestMethod]
+        public async Task GetById_ShouldReturnProduitDto_WhenProduitExists()
+        {
+            var produit = _testProduits[0];
+
+            var result = await _controller.Get(produit.IdProduit);
+            var dto = result.Value;
+
+            Assert.IsNotNull(dto);
+            Assert.AreEqual(produit.NomProduit, dto.Nom);
+            Assert.AreEqual(produit.Description, dto.Description);
+        }
+
+        [TestMethod]
+        public async Task GetById_ShouldReturnNotFound_WhenProduitDoesNotExist()
+        {
+            var result = await _controller.Get(999);
+
+            Assert.IsInstanceOfType(result.Result, typeof(NotFoundResult));
+        }
+
+        [TestMethod]
+        public async Task GetAll_ShouldReturnAllProducts()
+        {
+            var result = await _controller.GetAll();
+            Assert.IsInstanceOfType(result.Result, typeof(OkObjectResult));
+
+            var okResult = result.Result as OkObjectResult;
+            var produits = okResult!.Value as IEnumerable<ProduitDto>;
+
+            Assert.IsNotNull(produits);
+            Assert.AreEqual(_testProduits.Count, produits.Count() - _initialProductCount);
+            Assert.IsTrue(produits.Any(p => p.Nom == "Chaise"));
+            Assert.IsTrue(produits.Any(p => p.Nom == "Table"));
+        }
+
+        [TestMethod]
+        public async Task Create_ShouldAddProduct()
+        {
+            var dto = new ProduitDto
             {
-                NomProduit = "Armoir",
-                Description = "Une superbe armoire",
-                NomPhoto = "Une superbe armoire jaune",
-                UriPhoto = "https://ikea.fr/armoire-jaune.jpg"
-            }
-        ];
-        
-        _context.Produits.AddRange(productInDb);
-        _context.SaveChanges();
-        
-        // When : On souhaite récupérer tous les produits
-        var products = _productController.GetAll().GetAwaiter().GetResult();
+                Nom = "Bureau",
+                Description = "Description bureau",
+                NomPhoto = "bureau.jpg",
+                UriPhoto = "http://test.com/bureau.jpg",
+                StockReel = 8,
+                StockMin = 2,
+                StockMax = 15
+            };
 
-        // Then : Tous les produits sont récupérés
-        Assert.IsNotNull(products);
-        Assert.IsInstanceOfType(products.Value, typeof(IEnumerable<ProduitDto>));
-        Assert.IsTrue(((IMapper<Produit, ProduitDto>)_produitMapper).ToDTOs(productInDb).SequenceEqual(products.Value));
-    }
-    
-    [TestMethod]
-    public void GetProductShouldReturnNotFound()
-    {
-        // When : On appelle la méthode get de mon api pour récupérer le produit
-        ActionResult<ProduitDetailDto> action = _productController.Get(0).GetAwaiter().GetResult();
-        
-        // Then : On ne renvoie rien et on renvoie NOT_FOUND (404)
-        Assert.IsInstanceOfType(action.Result, typeof(NotFoundResult), "Ne renvoie pas 404");
-        Assert.IsNull(action.Value, "Le produit n'est pas null");
-    }
-    
-    [TestMethod]
-    public void ShouldCreateProduct()
-    {
-        // Given : Un produit a enregistré
-        Produit productToInsert = new()
+            var result = await _controller.Create(dto);
+
+            Assert.IsInstanceOfType(result.Result, typeof(CreatedAtActionResult));
+            var produitInDb = _context.Produits.FirstOrDefault(p => p.NomProduit == "Bureau");
+            Assert.IsNotNull(produitInDb);
+
+            // Nettoyage
+            _context.Produits.Remove(produitInDb);
+            _context.SaveChanges();
+        }
+
+        [TestMethod]
+        public async Task Update_ShouldModifyExistingProduct()
         {
-            NomProduit = "Chaise",
-            Description = "Une superbe chaise",
-            NomPhoto = "Une superbe chaise bleu",
-            UriPhoto = "https://ikea.fr/chaise.jpg"
-        };
-        
-        // When : On appel la méthode POST de l'API pour enregistrer le produit
-        ActionResult<Produit> action = _productController.Create(productToInsert).GetAwaiter().GetResult();
-        
-        // Then : Le produit est bien enregistré et le code renvoyé et CREATED (201)
-        Produit productInDb = _context.Produits.Find(productToInsert.IdProduit);
-        
-        Assert.IsNotNull(productInDb);
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action.Result, typeof(CreatedAtActionResult));
+            var produit = _testProduits[0];
+            var dto = new ProduitDto
+            {
+                Id = produit.IdProduit,
+                Nom = "ChaiseModifiee",
+                Description = produit.Description,
+                NomPhoto = produit.NomPhoto,
+                UriPhoto = produit.UriPhoto,
+                StockReel = produit.StockReel,
+                StockMin = produit.StockMin,
+                StockMax = produit.StockMax
+            };
+
+            var result = await _controller.Update(produit.IdProduit, dto);
+
+            Assert.IsInstanceOfType(result, typeof(NoContentResult));
+
+            var updated = _context.Produits.Find(produit.IdProduit);
+            Assert.AreEqual("ChaiseModifiee", updated.NomProduit);
+        }
+
+        [TestMethod]
+        public async Task Update_ShouldReturnNotFound_WhenProductDoesNotExist()
+        {
+            var dto = new ProduitDto { Id = 999, Nom = "Inexistant" };
+            var result = await _controller.Update(999, dto);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundResult));
+        }
+
+        [TestMethod]
+        public async Task Delete_ShouldRemoveProduct()
+        {
+            var produit = _testProduits[0];
+
+            var result = await _controller.Delete(produit.IdProduit);
+
+            Assert.IsInstanceOfType(result, typeof(NoContentResult));
+            var deleted = _context.Produits.Find(produit.IdProduit);
+            Assert.IsNull(deleted);
+
+            // Retirer de la liste pour ne pas le supprimer à nouveau dans Cleanup
+            _testProduits.Remove(produit);
+        }
+
+        [TestMethod]
+        public async Task Delete_ShouldReturnNotFound_WhenProductDoesNotExist()
+        {
+            var result = await _controller.Delete(999);
+            Assert.IsInstanceOfType(result, typeof(NotFoundResult));
+        }
     }
 
-    [TestMethod]
-    public void ShouldUpdateProduct()
+    // Wrapper pour utiliser AutoMapper dans le controller
+    public class AutoMapperWrapper : App.Mapper.IMapper<Produit, ProduitDto>
     {
-        // Given : Un produit à mettre à jour
-        Produit produitToEdit = new()
-        {
-            NomProduit = "Bureau",
-            Description = "Un super bureau",
-            NomPhoto = "Un super bureau bleu",
-            UriPhoto = "https://ikea.fr/bureau.jpg"
-        };
-        
-        _context.Produits.Add(produitToEdit);
-        _context.SaveChanges();
-        
-        // Une fois enregistré, on modifie certaines propriétés 
-        produitToEdit.NomProduit = "Lit";
-        produitToEdit.Description = "Un super lit";
-
-        // When : On appelle la méthode PUT du controller pour mettre à jour le produit
-        IActionResult action = _productController.Update(produitToEdit.IdProduit, produitToEdit).GetAwaiter().GetResult();
-        
-        // Then : On vérifie que le produit a bien été modifié et que le code renvoyé et NO_CONTENT (204)
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action, typeof(NoContentResult));
-        
-        Produit editedProductInDb = _context.Produits.Find(produitToEdit.IdProduit);
-        
-        Assert.IsNotNull(editedProductInDb);
-        Assert.AreEqual(produitToEdit, editedProductInDb);
-    }
-    
-    [TestMethod]
-    public void ShouldNotUpdateProductBecauseIdInUrlIsDifferent()
-    {
-        // Given : Un produit à mettre à jour
-        Produit produitToEdit = new()
-        {
-            NomProduit = "Bureau",
-            Description = "Un super bureau",
-            NomPhoto = "Un super bureau bleu",
-            UriPhoto = "https://ikea.fr/bureau.jpg"
-        };
-        
-        _context.Produits.Add(produitToEdit);
-        _context.SaveChanges();
-        
-        produitToEdit.NomProduit = "Lit";
-        produitToEdit.Description = "Un super lit";
-
-        // When : On appelle la méthode PUT du controller pour mettre à jour le produit,
-        // mais en précisant un ID différent de celui du produit enregistré
-        IActionResult action = _productController.Update(0, produitToEdit).GetAwaiter().GetResult();
-        
-        // Then : On vérifie que l'API renvoie un code BAD_REQUEST (400)
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action, typeof(BadRequestResult));
-    }
-    
-    [TestMethod]
-    public void ShouldNotUpdateProductBecauseProductDoesNotExist()
-    {
-        // Given : Un produit à mettre à jour qui n'est pas enregistré
-        Produit produitToEdit = new()
-        {
-            IdProduit = 20,
-            NomProduit = "Bureau",
-            Description = "Un super bureau",
-            NomPhoto = "Un super bureau bleu",
-            UriPhoto = "https://ikea.fr/bureau.jpg"
-        };
-        
-        // When : On appelle la méthode PUT du controller pour mettre à jour un produit qui n'est pas enregistré
-        IActionResult action = _productController.Update(produitToEdit.IdProduit, produitToEdit).GetAwaiter().GetResult();
-        
-        // Then : On vérifie que l'API renvoie un code NOT_FOUND (404)
-        Assert.IsNotNull(action);
-        Assert.IsInstanceOfType(action, typeof(NotFoundResult));
+        private readonly IMapper _mapper;
+        public AutoMapperWrapper(IMapper mapper) => _mapper = mapper;
+        public ProduitDto ToDTO(Produit entity) => _mapper.Map<ProduitDto>(entity);
+        public Produit ToEntity(ProduitDto dto) => _mapper.Map<Produit>(dto);
+        public IEnumerable<ProduitDto> ToDTOs(IEnumerable<Produit> entities) => _mapper.Map<IEnumerable<ProduitDto>>(entities);
     }
 }

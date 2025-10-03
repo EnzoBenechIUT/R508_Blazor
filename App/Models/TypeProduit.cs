@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace App.Models;
-
+[Table("TypeProduit")]
 public class TypeProduit
 {
     [Key]
@@ -13,5 +13,5 @@ public class TypeProduit
     public string NomTypeProduit { get; set; } = null!;
     
     [InverseProperty(nameof(Produit.TypeProduitNavigation))]
-    public virtual ICollection<Produit> Produits { get; set; } = null!;
+    public virtual ICollection<Produit>? Produits { get; set; } = null!;
 }
